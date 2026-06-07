@@ -5,7 +5,7 @@ import { TechTag } from "./ui/badge";
 import { SectionLabel } from "./ui/section-label";
 
 interface StackSectionProps {
-  tools: string[];
+  tools: readonly string[];
 }
 
 export function StackSection({ tools }: StackSectionProps) {
