@@ -99,6 +99,17 @@ export function JournalWorkspace({ posts, streakInfo, achievements, visitorStats
   const currentLevel = getComboLevel(comboCount);
   const currentLevelIndex = currentLevel ? COMBO_LEVELS.indexOf(currentLevel) : -1;
 
+  // Calculate progress to next level
+  const getComboProgress = () => {
+    if (comboCount === 0) return 0;
+    if (currentLevelIndex === -1) return Math.min(100, (comboCount / 3) * 100);
+    if (currentLevelIndex === 0) return 100; // Max level
+    const currentMin = COMBO_LEVELS[currentLevelIndex].min;
+    const nextMin = COMBO_LEVELS[currentLevelIndex - 1].min;
+    return Math.min(100, Math.max(0, ((comboCount - currentMin) / (nextMin - currentMin)) * 100));
+  };
+  const comboProgress = getComboProgress();
+
   const playLevelUpSound = (levelIndex: number) => {
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
@@ -487,19 +498,34 @@ export function JournalWorkspace({ posts, streakInfo, achievements, visitorStats
 
             {/* Combo HUD */}
             <div className="border-t border-border-default pt-4 space-y-3">
-              <div className={`h-9 flex items-center justify-between rounded-r transition-all duration-300 ${levelUpFlash ? "scale-[1.01]" : ""}`}>
+              <div className={`relative h-9 rounded-r transition-all duration-300 overflow-hidden ${levelUpFlash ? "scale-[1.01]" : ""}`}>
                 {currentLevel ? (
-                  <div className={`w-full bg-gradient-to-r ${currentLevel.bg} via-transparent to-transparent border-l-2 ${currentLevel.border} px-4 py-2 font-mono text-[10px] font-bold ${currentLevel.text} flex items-center justify-between animate-in slide-in-from-left duration-200`}>
-                    <div className="flex items-center gap-2">
-                      <currentLevel.Icon className={`w-4 h-4 fill-current ${comboCount >= 25 ? "animate-bounce" : "animate-pulse"}`} />
-                      <span>{currentLevel.label}: {comboCount} KATA</span>
+                  <div className={`absolute inset-0 bg-bg-surface border-l-2 ${currentLevel.border}`}>
+                    {/* Animated Progress Bar */}
+                    <div 
+                      className={`absolute inset-0 bg-gradient-to-r ${currentLevel.bg} to-transparent transition-all duration-500 ease-out`}
+                      style={{ width: `${comboProgress}%` }}
+                    />
+                    
+                    {/* HUD Content */}
+                    <div className={`relative w-full h-full px-4 font-mono text-[10px] font-bold ${currentLevel.text} flex items-center justify-between`}>
+                      <div className="flex items-center gap-2">
+                        <currentLevel.Icon className={`w-4 h-4 fill-current ${comboCount >= 25 ? "animate-bounce" : "animate-pulse"}`} />
+                        <span>{currentLevel.label}:</span>
+                        {/* Bumping Word Count */}
+                        <span key={comboCount} className="animate-in fade-in zoom-in spin-in-[2deg] duration-200">
+                          {comboCount} KATA
+                        </span>
+                      </div>
+                      <span className="text-[9px] tracking-wider animate-pulse flex items-center gap-1">
+                        {currentLevel.status} <currentLevel.Icon className="w-3 h-3" />
+                      </span>
                     </div>
-                    <span className="text-[9px] tracking-wider animate-pulse flex items-center gap-1">
-                      {currentLevel.status} <currentLevel.Icon className="w-3 h-3" />
-                    </span>
                   </div>
                 ) : (
-                  <span className="font-mono text-[9px] text-text-placeholder">{wordCount} Kata · {charCount} Karakter · Mendukung Markdown</span>
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="font-mono text-[9px] text-text-placeholder">{wordCount} Kata · {charCount} Karakter · Mendukung Markdown</span>
+                  </div>
                 )}
               </div>
 
