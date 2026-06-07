@@ -64,7 +64,7 @@ export async function getRepos(): Promise<GitHubRepo[]> {
     const res = await fetch(
       `https://api.github.com/users/${username}/repos?sort=updated&per_page=20&type=public`,
       {
-        next: { revalidate: 3600 },
+        cache: "no-store",
         headers,
       },
     );
@@ -93,7 +93,7 @@ export async function getRepo(slug: string): Promise<GitHubRepo> {
     const res = await fetch(
       `https://api.github.com/repos/${username}/${slug}`,
       {
-        next: { revalidate: 3600 },
+        cache: "no-store",
         headers,
       },
     );
@@ -145,7 +145,7 @@ export async function getRepoReadme(slug: string): Promise<string | null> {
     const res = await fetch(
       `https://api.github.com/repos/${username}/${slug}/readme`,
       {
-        next: { revalidate: 3600 },
+        cache: "no-store",
         headers,
       },
     );
