@@ -2,11 +2,9 @@
 
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
-import fs from "fs/promises";
-import path from "path";
+import Redis from "ioredis";
 
-const DATA_DIR = path.join(process.cwd(), "src/data");
-const VISITORS_FILE = path.join(DATA_DIR, "visitors.json");
+const redis = process.env.KV_REDIS_URL ? new Redis(process.env.KV_REDIS_URL) : null;
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -29,34 +27,34 @@ export interface VisitorRecord {
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-async function ensureDir() {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  await fs.mkdir(path.join(DATA_DIR, "comments"), { recursive: true });
-}
-
 async function readComments(slug: string): Promise<Comment[]> {
-  await ensureDir();
-  const file = path.join(DATA_DIR, "comments", `${slug}.json`);
+  if (!redis) return [];
   try {
-    return JSON.parse(await fs.readFile(file, "utf-8"));
+    const data = await redis.get(`comments:${slug}`);
+    return data ? JSON.parse(data) : [];
   } catch {
     return [];
   }
 }
 
 async function writeComments(slug: string, comments: Comment[]) {
-  await ensureDir();
-  const file = path.join(DATA_DIR, "comments", `${slug}.json`);
-  await fs.writeFile(file, JSON.stringify(comments, null, 2), "utf-8");
+  if (!redis) return;
+  await redis.set(`comments:${slug}`, JSON.stringify(comments));
 }
 
 async function readVisitors(): Promise<Record<string, VisitorRecord>> {
-  await ensureDir();
+  if (!redis) return {};
   try {
-    return JSON.parse(await fs.readFile(VISITORS_FILE, "utf-8"));
+    const data = await redis.get("visitors");
+    return data ? JSON.parse(data) : {};
   } catch {
     return {};
   }
+}
+
+async function writeVisitors(visitors: Record<string, VisitorRecord>) {
+  if (!redis) return;
+  await redis.set("visitors", JSON.stringify(visitors));
 }
 
 // ── Public Actions ───────────────────────────────────────────────────────────
@@ -129,7 +127,7 @@ export async function recordVisit(name: string, page: string): Promise<void> {
     visitors[key] = { name: name.trim(), firstSeen: now, lastSeen: now, visitCount: 1, pages: [page] };
   }
 
-  await fs.writeFile(VISITORS_FILE, JSON.stringify(visitors, null, 2), "utf-8");
+  await writeVisitors(visitors);
 }
 
 export async function getVisitorStats(): Promise<{
