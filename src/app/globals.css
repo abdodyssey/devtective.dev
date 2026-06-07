@@ -1,26 +1,85 @@
 @import "tailwindcss";
 
+@theme {
+  /* Background */
+  --color-bg-primary: var(--bg-primary);
+  --color-bg-surface: var(--bg-surface);
+  --color-bg-muted: var(--bg-muted);
+  --color-bg-accent-tint: var(--bg-accent-tint);
+
+  /* Basic Colors */
+  --color-white: #ffffff;
+  --color-black: #000000;
+
+  /* Border */
+  --color-border-default: var(--border-default);
+  --color-border-strong: var(--border-strong);
+
+  /* Text */
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-placeholder: var(--text-placeholder);
+
+  /* Accent */
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-tint: var(--accent-tint);
+  --color-accent-border: var(--accent-border);
+
+  /* Font Families */
+  --font-sans: var(--font-sans), sans-serif;
+  --font-mono: var(--font-mono), monospace;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* LIGHT MODE */
+  /* 60% Dominant (Backgrounds) */
+  --bg-primary: #ffffff;
+  --bg-surface: #f8f9fa;
+  --bg-muted: #f1f3f5;
+  
+  /* 30% Secondary (Borders, Text) */
+  --border-default: #e5e7eb;
+  --border-strong: #d1d5db;
+  --text-primary: #111827;
+  --text-secondary: #374151;
+  --text-muted: #6b7280;
+  --text-placeholder: #9ca3af;
+  
+  /* 10% Accent */
+  --accent: #f05a28;
+  --accent-hover: #d94e20;
+  --accent-tint: #fff0eb;
+  --accent-border: #ffddd0;
+  --bg-accent-tint: #fff0eb;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.dark, :root[class~="dark"] {
+  /* DARK MODE */
+  /* 60% Dominant (Backgrounds) */
+  --bg-primary: #0a0a0a;
+  --bg-surface: #171717;
+  --bg-muted: #262626;
+  
+  /* 30% Secondary (Borders, Text) */
+  --border-default: #262626;
+  --border-strong: #404040;
+  --text-primary: #f5f5f5;
+  --text-secondary: #d4d4d4;
+  --text-muted: #a3a3a3;
+  --text-placeholder: #525252;
+  
+  /* 10% Accent (Maintaining vibrance) */
+  --accent: #f05a28;
+  --accent-hover: #ff784d;
+  --accent-tint: #3b170c;
+  --accent-border: #6b2612;
+  --bg-accent-tint: #3b170c;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
 }

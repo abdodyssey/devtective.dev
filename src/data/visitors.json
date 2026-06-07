@@ -1,0 +1,21 @@
+{
+  "abdi": {
+    "name": "Abdi",
+    "firstSeen": "2026-06-07T06:58:57.645Z",
+    "lastSeen": "2026-06-07T07:57:42.691Z",
+    "visitCount": 11,
+    "pages": [
+      "/journal/jurnal-ke-2",
+      "/journal/my-first-journal"
+    ]
+  },
+  "abdul": {
+    "name": "Abdul",
+    "firstSeen": "2026-06-07T07:51:09.920Z",
+    "lastSeen": "2026-06-07T07:51:09.920Z",
+    "visitCount": 1,
+    "pages": [
+      "/journal/jurnal-ke-2"
+    ]
+  }
+}
