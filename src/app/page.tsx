@@ -9,6 +9,7 @@ import { sortRepos } from "@/lib/utils";
 import type { GitHubRepo } from "@/types/github";
 import { createReader } from "@keystatic/core/reader";
 import keystaticConfig from "../../keystatic.config";
+import { getPortfolioData } from "@/app/profile/actions";
 
 const reader = createReader(process.cwd(), keystaticConfig);
 
@@ -24,9 +25,9 @@ export default async function Home() {
 
   let aboutData = null;
   try {
-    aboutData = await reader.singletons.about.read();
+    aboutData = await getPortfolioData();
   } catch (error) {
-    console.error("Failed to read Keystatic about data:", error);
+    console.error("Failed to read profile data from Redis:", error);
   }
 
   return (

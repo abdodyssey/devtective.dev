@@ -2,8 +2,10 @@
 
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
-import fs from "fs/promises";
-import path from "path";
+import { put } from "@vercel/blob";
+import Redis from "ioredis";
+
+const redis = process.env.KV_REDIS_URL ? new Redis(process.env.KV_REDIS_URL) : null;
 
 export async function verifyAndUnlockPortfolio(password: string): Promise<boolean> {
   const correctPassword = process.env.JOURNAL_PASSWORD || "devtective";
@@ -36,7 +38,6 @@ export type PortfolioData = {
 };
 
 export async function getPortfolioData(): Promise<PortfolioData> {
-  const filePath = path.join(process.cwd(), "src/content/about.json");
   const defaultStack = [
     "Next.js", "React", "TypeScript", "Tailwind CSS", 
     "Supabase", "PostgreSQL", "Docker", "Agentic AI", 
@@ -46,29 +47,34 @@ export async function getPortfolioData(): Promise<PortfolioData> {
     "Keystatic", "Framer Motion", "Biome",
     "LangChain", "LlamaIndex", "OpenAI API", "FastAPI"
   ];
+  const defaults = {
+    heroImage: "/pfp.webp",
+    heroName: "M. Abdi Nugroho",
+    heroHeadline: "TECH ENTHUSIAST · ID",
+    heroDescription: "Seseorang dengan rasa penasaran tinggi terhadap teknologi...",
+    bio: "",
+    interests: [],
+    stack: defaultStack,
+  };
+
   try {
-    const fileContent = await fs.readFile(filePath, "utf-8");
-    const parsed = JSON.parse(fileContent);
+    if (!redis) throw new Error("Redis not configured");
+    const dataStr = await redis.get("portfolio:about");
+    if (!dataStr) return defaults;
+    
+    const parsed = JSON.parse(dataStr);
     return {
-      heroImage: parsed.heroImage || "/pfp.webp",
-      heroName: parsed.heroName || "M. Abdi Nugroho",
-      heroHeadline: parsed.heroHeadline || "TECH ENTHUSIAST · ID",
-      heroDescription: parsed.heroDescription || "Seseorang dengan rasa penasaran tinggi terhadap teknologi...",
-      bio: parsed.bio || "",
-      interests: parsed.interests || [],
-      stack: parsed.stack && parsed.stack.length > 0 ? parsed.stack : defaultStack,
+      heroImage: parsed.heroImage || defaults.heroImage,
+      heroName: parsed.heroName || defaults.heroName,
+      heroHeadline: parsed.heroHeadline || defaults.heroHeadline,
+      heroDescription: parsed.heroDescription || defaults.heroDescription,
+      bio: parsed.bio || defaults.bio,
+      interests: parsed.interests || defaults.interests,
+      stack: parsed.stack && parsed.stack.length > 0 ? parsed.stack : defaults.stack,
     };
   } catch (error) {
-    console.error("Failed to read portfolio data:", error);
-    return { 
-      heroImage: "/pfp.webp",
-      heroName: "M. Abdi Nugroho", 
-      heroHeadline: "TECH ENTHUSIAST · ID", 
-      heroDescription: "", 
-      bio: "", 
-      interests: [], 
-      stack: defaultStack
-    };
+    console.error("Failed to read portfolio data from Redis:", error);
+    return defaults;
   }
 }
 
@@ -79,17 +85,14 @@ export async function updatePortfolioData(data: PortfolioData): Promise<{ succes
     throw new Error("Unauthorized");
   }
 
-  const filePath = path.join(process.cwd(), "src/content/about.json");
-  
-  // Ensure directory exists
-  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  if (!redis) throw new Error("Redis not configured");
 
-  // Write file
-  await fs.writeFile(filePath, JSON.stringify(data, null, 2), "utf-8");
+  // Write to Redis
+  await redis.set("portfolio:about", JSON.stringify(data));
 
-  // Revalidate routes to update homepage
+  // Revalidate routes
   revalidatePath("/");
-  revalidatePath("/portfolio");
+  revalidatePath("/profile");
 
   return { success: true };
 }
@@ -115,13 +118,18 @@ export async function uploadPortfolioImage(formData: FormData): Promise<{ succes
     return { success: false, url: "", error: "File terlalu besar. Maksimal 5MB." };
   }
 
-  const ext = file.name.split(".").pop() ?? "jpg";
-  const uniqueName = `pfp-${Date.now()}.${ext}`;
-  const uploadDir = path.join(process.cwd(), "public");
+  try {
+    const ext = file.name.split(".").pop() ?? "jpg";
+    const uniqueName = `pfp-${Date.now()}.${ext}`;
+    
+    const blob = await put(uniqueName, file, {
+      access: 'public',
+      addRandomSuffix: false
+    });
 
-  const buffer = Buffer.from(await file.arrayBuffer());
-  await fs.writeFile(path.join(uploadDir, uniqueName), buffer);
-
-  // We save it directly to /public, so the URL is just /filename
-  return { success: true, url: `/${uniqueName}` };
+    return { success: true, url: blob.url };
+  } catch (error) {
+    console.error("Vercel Blob upload failed:", error);
+    return { success: false, url: "", error: "Gagal mengunggah ke Vercel Blob." };
+  }
 }
