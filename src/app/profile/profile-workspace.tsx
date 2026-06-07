@@ -212,7 +212,7 @@ export function ProfileWorkspace({ initialData, isAuthenticated }: ProfileWorksp
                 className="w-full bg-bg-surface border border-border-default rounded px-3 py-2 font-sans text-sm text-text-primary focus:outline-none focus:border-accent"
               />
             </div>
-            </div>
+            <div className="space-y-1.5">
               <label className="font-mono text-[10px] text-text-muted uppercase">Hero Headline</label>
               <input
                 type="text"
