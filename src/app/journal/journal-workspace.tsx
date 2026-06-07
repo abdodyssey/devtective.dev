@@ -73,7 +73,8 @@ export function JournalWorkspace({ posts, streakInfo, achievements, visitorStats
   const [sessionWords, setSessionWords] = useState(0);
   const [baselineWords, setBaselineWords] = useState(0);
   const [levelUpFlash, setLevelUpFlash] = useState(false);
-  const [prevComboLevel, setPrevComboLevel] = useState(0);
+  const [prevComboLevel, setPrevComboLevel] = useState(5);
+  const [splash, setSplash] = useState<{level: any, text: string, index: number} | null>(null);
 
   // UX improvements
   const [showPreview, setShowPreview] = useState(false);
@@ -97,14 +98,61 @@ export function JournalWorkspace({ posts, streakInfo, achievements, visitorStats
   const currentLevel = getComboLevel(comboCount);
   const currentLevelIndex = currentLevel ? COMBO_LEVELS.indexOf(currentLevel) : -1;
 
+  const playLevelUpSound = (levelIndex: number) => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      
+      const freqs = [
+        [523.25, 659.25, 783.99, 1046.50, 1318.51], // UNSTOPPABLE (C major fast arpeggio)
+        [440, 554.37, 659.25, 880],                 // GODLIKE (A major)
+        [392, 493.88, 587.33, 783.99],              // ON FIRE (G major)
+        [329.63, 415.30, 493.88],                   // HYPER (E major)
+        [261.63, 329.63],                           // WARM UP (C major short)
+      ];
+      
+      const sequence = freqs[levelIndex] || freqs[4];
+      
+      sequence.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        
+        osc.type = levelIndex < 2 ? 'square' : 'sine';
+        osc.frequency.value = freq;
+        
+        const startTime = ctx.currentTime + i * 0.12;
+        const duration = 0.2;
+        
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        
+        gain.gain.setValueAtTime(0, startTime);
+        gain.gain.linearRampToValueAtTime(0.1, startTime + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+        
+        osc.start(startTime);
+        osc.stop(startTime + duration);
+      });
+    } catch (e) {
+      console.error("Audio playback failed", e);
+    }
+  };
+
   // Flash on level-up
   useEffect(() => {
-    if (currentLevelIndex !== -1 && currentLevelIndex < prevComboLevel) {
+    const validCurrentLevel = currentLevelIndex === -1 ? 5 : currentLevelIndex;
+    if (validCurrentLevel < prevComboLevel) {
       setLevelUpFlash(true);
+      if (currentLevel) {
+        setSplash({ level: currentLevel, text: currentLevel.status, index: currentLevelIndex });
+        playLevelUpSound(currentLevelIndex);
+      }
       setTimeout(() => setLevelUpFlash(false), 600);
+      setTimeout(() => setSplash(null), 2500);
     }
-    setPrevComboLevel(currentLevelIndex);
-  }, [currentLevelIndex]);
+    setPrevComboLevel(validCurrentLevel);
+  }, [currentLevelIndex, prevComboLevel, currentLevel]);
 
   // Auto-reset combo on pause
   useEffect(() => {
@@ -498,6 +546,23 @@ export function JournalWorkspace({ posts, streakInfo, achievements, visitorStats
           </div>
         )}
         <Modals />
+        
+        {/* Combo Level Up Splash Animation */}
+        {splash && (
+          <div className="fixed inset-0 pointer-events-none z-[200] flex items-center justify-center overflow-hidden">
+            <div className={`absolute inset-0 bg-gradient-to-t ${splash.level.bg} opacity-50 animate-in fade-in duration-300`} />
+            <div className="relative animate-in zoom-in spin-in-[8deg] duration-500 ease-out flex flex-col items-center gap-4">
+               <h1 className={`font-mono text-5xl md:text-7xl font-black italic tracking-tighter ${splash.level.text} drop-shadow-[0_0_30px_currentColor] uppercase text-center scale-110`}>
+                  {splash.text}
+               </h1>
+               <div className="flex gap-2">
+                 {Array.from({length: 5 - splash.index}).map((_, i) => (
+                    <Flame key={i} className={`w-16 h-16 ${splash.level.text} fill-current animate-bounce`} style={{ animationDelay: `${i * 100}ms` }} />
+                 ))}
+               </div>
+            </div>
+          </div>
+        )}
       </>
     );
   }
