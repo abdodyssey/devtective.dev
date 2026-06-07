@@ -2,6 +2,7 @@
 
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
+import { put } from "@vercel/blob";
 import fs from "fs/promises";
 import path from "path";
 
@@ -32,6 +33,68 @@ function generateSlug(title: string): string {
     .replace(/(^-|-$)+/g, "");
 }
 
+// Helper to push commits directly to GitHub to bypass Vercel EROFS
+async function commitToGitHub(filePath: string, content: string, message: string) {
+  const token = process.env.GITHUB_TOKEN;
+  const username = process.env.GITHUB_USERNAME || "abdodyssey";
+  const repo = "devtective.dev";
+  
+  if (!token) throw new Error("GITHUB_TOKEN is missing. Please add it to your environment variables.");
+
+  const url = `https://api.github.com/repos/${username}/${repo}/contents/${filePath}`;
+  
+  // 1. Get file SHA if it already exists
+  const getRes = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github.v3+json" }
+  });
+  let sha = undefined;
+  if (getRes.ok) {
+    const data = await getRes.json();
+    sha = data.sha;
+  }
+
+  // 2. Put file
+  const putRes = await fetch(url, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github.v3+json" },
+    body: JSON.stringify({
+      message,
+      content: Buffer.from(content).toString("base64"),
+      sha
+    })
+  });
+
+  if (!putRes.ok) {
+    throw new Error(`GitHub commit failed: ${await putRes.text()}`);
+  }
+}
+
+async function deleteFromGitHub(filePath: string, message: string) {
+  const token = process.env.GITHUB_TOKEN;
+  const username = process.env.GITHUB_USERNAME || "abdodyssey";
+  const repo = "devtective.dev";
+  
+  if (!token) throw new Error("GITHUB_TOKEN is missing.");
+
+  const url = `https://api.github.com/repos/${username}/${repo}/contents/${filePath}`;
+  
+  const getRes = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github.v3+json" }
+  });
+  if (!getRes.ok) throw new Error("File not found on GitHub");
+  
+  const data = await getRes.json();
+  const sha = data.sha;
+
+  const delRes = await fetch(url, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github.v3+json" },
+    body: JSON.stringify({ message, sha })
+  });
+
+  if (!delRes.ok) throw new Error(`GitHub delete failed: ${await delRes.text()}`);
+}
+
 export async function createOrUpdateJournalEntry(
   existingSlug: string | null,
   title: string,
@@ -46,9 +109,6 @@ export async function createOrUpdateJournalEntry(
   }
 
   const slug = existingSlug || generateSlug(title);
-  const filePath = path.join(process.cwd(), "src/content/journal", `${slug}.mdoc`);
-
-  // Format frontmatter and body exactly like Keystatic output
   const fileContent = `---
 title: ${title}
 date: ${date}
@@ -57,13 +117,20 @@ isPrivate: ${isPrivate}
 ${content.trim()}
 `;
 
-  // Ensure directory exists
-  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  // On Vercel, we must commit to GitHub so Keystatic can read it upon rebuild
+  if (process.env.VERCEL) {
+    await commitToGitHub(
+      `src/content/journal/${slug}.mdoc`,
+      fileContent,
+      `docs: update journal entry ${slug}`
+    );
+  } else {
+    // Local fallback
+    const filePath = path.join(process.cwd(), "src/content/journal", `${slug}.mdoc`);
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
+    await fs.writeFile(filePath, fileContent, "utf-8");
+  }
 
-  // Write file
-  await fs.writeFile(filePath, fileContent, "utf-8");
-
-  // Revalidate routes to update layout and lists
   revalidatePath("/journal");
   revalidatePath(`/journal/${slug}`);
 
@@ -77,9 +144,13 @@ export async function deleteJournalEntry(slug: string): Promise<boolean> {
     throw new Error("Unauthorized");
   }
 
-  const filePath = path.join(process.cwd(), "src/content/journal", `${slug}.mdoc`);
   try {
-    await fs.unlink(filePath);
+    if (process.env.VERCEL) {
+      await deleteFromGitHub(`src/content/journal/${slug}.mdoc`, `docs: delete journal entry ${slug}`);
+    } else {
+      const filePath = path.join(process.cwd(), "src/content/journal", `${slug}.mdoc`);
+      await fs.unlink(filePath);
+    }
     revalidatePath("/journal");
     return true;
   } catch (error) {
@@ -95,10 +166,29 @@ export async function getRawJournalContent(slug: string): Promise<string> {
     throw new Error("Unauthorized");
   }
 
-  const filePath = path.join(process.cwd(), "src/content/journal", `${slug}.mdoc`);
-  const fileContent = await fs.readFile(filePath, "utf-8");
-  const parts = fileContent.split("---");
-  return parts.slice(2).join("---").trim();
+  try {
+    if (process.env.VERCEL) {
+      const token = process.env.GITHUB_TOKEN;
+      const username = process.env.GITHUB_USERNAME || "abdodyssey";
+      const url = `https://api.github.com/repos/${username}/devtective.dev/contents/src/content/journal/${slug}.mdoc`;
+      const res = await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}`, Accept: "application/vnd.github.v3.raw" } : { Accept: "application/vnd.github.v3.raw" },
+        cache: 'no-store'
+      });
+      if (!res.ok) throw new Error("Not found on GitHub");
+      const fileContent = await res.text();
+      const parts = fileContent.split("---");
+      return parts.slice(2).join("---").trim();
+    } else {
+      const filePath = path.join(process.cwd(), "src/content/journal", `${slug}.mdoc`);
+      const fileContent = await fs.readFile(filePath, "utf-8");
+      const parts = fileContent.split("---");
+      return parts.slice(2).join("---").trim();
+    }
+  } catch (error) {
+    console.error("Error reading raw journal:", error);
+    return "";
+  }
 }
 
 export async function uploadJournalImage(formData: FormData): Promise<{ success: boolean; url: string; error?: string }> {
@@ -113,27 +203,29 @@ export async function uploadJournalImage(formData: FormData): Promise<{ success:
     return { success: false, url: "", error: "No file provided" };
   }
 
-  // Validate file type
   const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml"];
   if (!allowedTypes.includes(file.type)) {
-    return { success: false, url: "", error: "File type not supported. Use JPG, PNG, GIF, WebP, or SVG." };
+    return { success: false, url: "", error: "File type not supported." };
   }
 
-  // Max 5MB
   if (file.size > 5 * 1024 * 1024) {
     return { success: false, url: "", error: "File too large. Max 5MB." };
   }
 
-  // Generate unique filename to avoid collisions
-  const ext = file.name.split(".").pop() ?? "jpg";
-  const uniqueName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-  const uploadDir = path.join(process.cwd(), "public", "journal-images");
+  try {
+    const ext = file.name.split(".").pop() ?? "jpg";
+    const uniqueName = `journal-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    
+    // Always use Vercel Blob for images for consistency
+    const blob = await put(uniqueName, file, {
+      access: 'public',
+      addRandomSuffix: false
+    });
 
-  await fs.mkdir(uploadDir, { recursive: true });
-
-  const buffer = Buffer.from(await file.arrayBuffer());
-  await fs.writeFile(path.join(uploadDir, uniqueName), buffer);
-
-  return { success: true, url: `/journal-images/${uniqueName}` };
+    return { success: true, url: blob.url };
+  } catch (error) {
+    console.error("Journal image upload failed:", error);
+    return { success: false, url: "", error: "Gagal mengunggah gambar ke Vercel Blob." };
+  }
 }
 
