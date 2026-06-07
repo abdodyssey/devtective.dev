@@ -7,6 +7,7 @@ import {
   Calendar, Plus, Edit3, Trash2, Save, BookOpen, ArrowLeft,
   Flame, Trophy, CheckCircle2, AlertCircle, Loader2, Lock, Target, Star, ImageIcon,
   Eye, EyeOff, Bold, Italic, Code, Link2, Quote, Heading2, Users, Search, Columns,
+  Crown, Zap, Sparkles, Rocket
 } from "lucide-react";
 import { createOrUpdateJournalEntry, deleteJournalEntry, getRawJournalContent, uploadJournalImage } from "./actions";
 import { LockButton } from "./lock-button";
@@ -31,11 +32,11 @@ type ViewMode = "list" | "write";
 const DAILY_WORD_GOAL = 200;
 
 const COMBO_LEVELS = [
-  { min: 100, label: "LV.5 UNSTOPPABLE", status: "UNSTOPPABLE! 👑", bg: "from-cyan-500/15", border: "border-cyan-500", text: "text-cyan-500" },
-  { min: 50,  label: "LV.4 GODLIKE",     status: "GODLIKE! 🚀",     bg: "from-purple-500/15", border: "border-purple-500", text: "text-purple-500" },
-  { min: 25,  label: "LV.3 ON FIRE",     status: "ON FIRE! 🔥",     bg: "from-red-500/15", border: "border-red-500", text: "text-red-500" },
-  { min: 10,  label: "LV.2 HYPER",       status: "HYPER ACTIVE ⚡", bg: "from-orange-500/15", border: "border-orange-500", text: "text-orange-500" },
-  { min: 3,   label: "LV.1 WARM UP",     status: "WARM UP ✨",      bg: "from-amber-500/15", border: "border-amber-500", text: "text-amber-500" },
+  { min: 100, label: "LV.5 UNSTOPPABLE", status: "UNSTOPPABLE", bg: "from-cyan-500/15", border: "border-cyan-500", text: "text-cyan-500", Icon: Crown },
+  { min: 50,  label: "LV.4 GODLIKE",     status: "GODLIKE",     bg: "from-purple-500/15", border: "border-purple-500", text: "text-purple-500", Icon: Rocket },
+  { min: 25,  label: "LV.3 ON FIRE",     status: "ON FIRE",     bg: "from-red-500/15", border: "border-red-500", text: "text-red-500", Icon: Flame },
+  { min: 10,  label: "LV.2 HYPER",       status: "HYPER ACTIVE", bg: "from-orange-500/15", border: "border-orange-500", text: "text-orange-500", Icon: Zap },
+  { min: 3,   label: "LV.1 WARM UP",     status: "WARM UP",      bg: "from-amber-500/15", border: "border-amber-500", text: "text-amber-500", Icon: Sparkles },
 ];
 
 const RARITY_STYLES: Record<string, string> = {
@@ -490,10 +491,12 @@ export function JournalWorkspace({ posts, streakInfo, achievements, visitorStats
                 {currentLevel ? (
                   <div className={`w-full bg-gradient-to-r ${currentLevel.bg} via-transparent to-transparent border-l-2 ${currentLevel.border} px-4 py-2 font-mono text-[10px] font-bold ${currentLevel.text} flex items-center justify-between animate-in slide-in-from-left duration-200`}>
                     <div className="flex items-center gap-2">
-                      <Flame className={`w-4 h-4 fill-current ${comboCount >= 25 ? "animate-bounce" : "animate-pulse"}`} />
+                      <currentLevel.Icon className={`w-4 h-4 fill-current ${comboCount >= 25 ? "animate-bounce" : "animate-pulse"}`} />
                       <span>{currentLevel.label}: {comboCount} KATA</span>
                     </div>
-                    <span className="text-[9px] tracking-wider animate-pulse">{currentLevel.status}</span>
+                    <span className="text-[9px] tracking-wider animate-pulse flex items-center gap-1">
+                      {currentLevel.status} <currentLevel.Icon className="w-3 h-3" />
+                    </span>
                   </div>
                 ) : (
                   <span className="font-mono text-[9px] text-text-placeholder">{wordCount} Kata · {charCount} Karakter · Mendukung Markdown</span>
@@ -551,14 +554,17 @@ export function JournalWorkspace({ posts, streakInfo, achievements, visitorStats
         {splash && (
           <div className="fixed inset-0 pointer-events-none z-[200] flex items-center justify-center overflow-hidden">
             <div className={`absolute inset-0 bg-gradient-to-t ${splash.level.bg} opacity-50 animate-in fade-in duration-300`} />
-            <div className="relative animate-in zoom-in spin-in-[8deg] duration-500 ease-out flex flex-col items-center gap-4">
-               <h1 className={`font-mono text-5xl md:text-7xl font-black italic tracking-tighter ${splash.level.text} drop-shadow-[0_0_30px_currentColor] uppercase text-center scale-110`}>
+            <div className="relative animate-in zoom-in spin-in-[4deg] duration-500 ease-out flex flex-col items-center gap-6">
+               <h1 className={`font-sans text-6xl md:text-8xl font-black tracking-tighter ${splash.level.text} drop-shadow-[0_0_40px_currentColor] uppercase text-center scale-110 leading-none`}>
                   {splash.text}
                </h1>
-               <div className="flex gap-2">
-                 {Array.from({length: 5 - splash.index}).map((_, i) => (
-                    <Flame key={i} className={`w-16 h-16 ${splash.level.text} fill-current animate-bounce`} style={{ animationDelay: `${i * 100}ms` }} />
-                 ))}
+               <div className="flex gap-4">
+                 {Array.from({length: 5 - splash.index}).map((_, i) => {
+                    const IconComponent = splash.level.Icon;
+                    return (
+                      <IconComponent key={i} className={`w-16 h-16 md:w-20 md:h-20 ${splash.level.text} drop-shadow-[0_0_20px_currentColor] animate-bounce`} style={{ animationDelay: `${i * 100}ms`, strokeWidth: 2.5 }} />
+                    );
+                 })}
                </div>
             </div>
           </div>
