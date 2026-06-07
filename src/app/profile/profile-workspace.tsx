@@ -3,12 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { 
-  User, Lock, LogOut, Save, Plus, Trash2, Loader2, AlertCircle, Sparkles, Layers, Image as ImageIcon, Upload, X
+  User, Lock, LogOut, Save, Plus, Trash2, Loader2, AlertCircle, Sparkles, Layers
 } from "lucide-react";
-import { lockPortfolio, updatePortfolioData, verifyAndUnlockPortfolio, uploadPortfolioImage, type PortfolioData } from "./actions";
-import Image from "next/image";
-import Cropper from "react-easy-crop";
-import { getCroppedImg } from "@/lib/crop-image";
+import { lockPortfolio, updatePortfolioData, verifyAndUnlockPortfolio, type PortfolioData } from "./actions";
 
 interface ProfileWorkspaceProps {
   initialData: PortfolioData;
@@ -21,7 +18,6 @@ export function ProfileWorkspace({ initialData, isAuthenticated }: ProfileWorksp
   const [password, setPassword] = useState("");
   const [error, setError] = useState(false);
   
-  const [heroImage, setHeroImage] = useState(initialData.heroImage);
   const [heroName, setHeroName] = useState(initialData.heroName);
   const [heroHeadline, setHeroHeadline] = useState(initialData.heroHeadline);
   const [heroDescription, setHeroDescription] = useState(initialData.heroDescription);
@@ -36,56 +32,7 @@ export function ProfileWorkspace({ initialData, isAuthenticated }: ProfileWorksp
   const [alertDialog, setAlertDialog] = useState<{ isOpen: boolean; title: string; message: string }>({ isOpen: false, title: "", message: "" });
   const showAlert = (title: string, message: string) => setAlertDialog({ isOpen: true, title, message });
 
-  // Cropper states
-  const [imageSrc, setImageSrc] = useState<string | null>(null);
-  const [crop, setCrop] = useState({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
-  const [isCropping, setIsCropping] = useState(false);
-  const [uploadingImg, setUploadingImg] = useState(false);
-
-  const onCropComplete = (croppedArea: any, croppedAreaPixels: any) => {
-    setCroppedAreaPixels(croppedAreaPixels);
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const reader = new FileReader();
-      reader.addEventListener("load", () => {
-        setImageSrc(reader.result?.toString() || "");
-        setIsCropping(true);
-      });
-      reader.readAsDataURL(e.target.files[0]);
-    }
-  };
-
-  const handleUploadCrop = async () => {
-    if (!imageSrc || !croppedAreaPixels) return;
-    setUploadingImg(true);
-    try {
-      const croppedImageBlob = await getCroppedImg(imageSrc, croppedAreaPixels);
-      if (!croppedImageBlob) throw new Error("Gagal crop gambar");
-
-      const file = new File([croppedImageBlob], "profile.webp", { type: "image/webp" });
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const result = await uploadPortfolioImage(formData);
-      if (result.success) {
-        setHeroImage(result.url);
-        setIsCropping(false);
-        setImageSrc(null);
-      } else {
-        showAlert("Gagal Upload", result.error || "Gagal mengupload gambar");
-      }
-    } catch (e) {
-      console.error(e);
-      showAlert("Gagal", "Terjadi kesalahan saat memproses gambar.");
-    } finally {
-      setUploadingImg(false);
-    }
-  };
-
+  // Image upload logic removed as per request
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!password) return;
@@ -117,7 +64,7 @@ export function ProfileWorkspace({ initialData, isAuthenticated }: ProfileWorksp
     setLoading(true);
     try {
       await updatePortfolioData({ 
-        heroImage, heroName, heroHeadline, heroDescription, bio, interests, stack 
+        heroName, heroHeadline, heroDescription, bio, interests, stack 
       });
       router.refresh();
       showAlert("Sukses", "Profil berhasil diperbarui!");
@@ -255,22 +202,9 @@ export function ProfileWorkspace({ initialData, isAuthenticated }: ProfileWorksp
             <Sparkles className="w-4 h-4 text-accent" />
             Hero Section
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="font-mono text-[10px] text-text-muted uppercase block">Profile Picture</label>
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-full overflow-hidden border border-border-default relative bg-bg-primary">
-                    <Image src={heroImage || "/pfp.webp"} alt="Profile" fill sizes="64px" className="object-cover" />
-                  </div>
-                  <label className="flex items-center gap-1.5 px-3 py-1.5 border border-border-default hover:border-accent text-text-muted hover:text-accent font-mono text-[10px] uppercase font-bold rounded cursor-pointer transition-colors">
-                    <Upload className="w-3.5 h-3.5" /> GANTI
-                    <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileChange} />
-                  </label>
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <label className="font-mono text-[10px] text-text-muted uppercase">Hero Name</label>
+          <div className="grid grid-cols-1 gap-4">
+            <div className="space-y-1.5">
+              <label className="font-mono text-[10px] text-text-muted uppercase">Hero Name</label>
               <input
                 type="text"
                 value={heroName}
@@ -279,7 +213,6 @@ export function ProfileWorkspace({ initialData, isAuthenticated }: ProfileWorksp
               />
             </div>
             </div>
-            <div className="space-y-1.5">
               <label className="font-mono text-[10px] text-text-muted uppercase">Hero Headline</label>
               <input
                 type="text"
@@ -406,51 +339,6 @@ export function ProfileWorkspace({ initialData, isAuthenticated }: ProfileWorksp
         </div>
 
       </div>
-      {isCropping && imageSrc && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
-          <div className="bg-bg-surface border border-border-default rounded-lg max-w-lg w-full mx-6 overflow-hidden flex flex-col h-[70vh]">
-            <div className="flex items-center justify-between p-4 border-b border-border-default">
-              <h3 className="font-mono text-xs font-bold text-text-primary uppercase tracking-wider">Crop Profile Picture</h3>
-              <button type="button" onClick={() => setIsCropping(false)} className="text-text-muted hover:text-red-500 transition-colors">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="relative flex-1 bg-black/50">
-              <Cropper
-                image={imageSrc}
-                crop={crop}
-                zoom={zoom}
-                aspect={1}
-                cropShape="round"
-                showGrid={false}
-                onCropChange={setCrop}
-                onCropComplete={onCropComplete}
-                onZoomChange={setZoom}
-              />
-            </div>
-            <div className="p-4 border-t border-border-default bg-bg-surface flex items-center justify-between gap-4">
-              <input
-                type="range"
-                value={zoom}
-                min={1}
-                max={3}
-                step={0.1}
-                aria-label="Zoom"
-                onChange={(e) => setZoom(Number(e.target.value))}
-                className="flex-1 accent-accent"
-              />
-              <button
-                type="button"
-                onClick={handleUploadCrop}
-                disabled={uploadingImg}
-                className="px-4 py-2 bg-text-primary text-bg-primary hover:bg-text-secondary active:scale-[0.98] rounded font-mono text-[10px] font-bold uppercase transition-all disabled:opacity-50 min-w-[100px] flex justify-center"
-              >
-                {uploadingImg ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "TERAPKAN"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       {alertDialog.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="bg-bg-surface border border-border-default rounded-lg max-w-sm w-full mx-6 p-6 shadow-2xl space-y-4">

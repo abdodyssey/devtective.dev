@@ -28,7 +28,6 @@ export async function lockPortfolio(): Promise<void> {
 }
 
 export type PortfolioData = {
-  heroImage: string;
   heroName: string;
   heroHeadline: string;
   heroDescription: string;
@@ -48,7 +47,6 @@ export async function getPortfolioData(): Promise<PortfolioData> {
     "LangChain", "LlamaIndex", "OpenAI API", "FastAPI"
   ];
   const defaults = {
-    heroImage: "/pfp.webp",
     heroName: "M. Abdi Nugroho",
     heroHeadline: "TECH ENTHUSIAST · ID",
     heroDescription: "Seseorang dengan rasa penasaran tinggi terhadap teknologi...",
@@ -64,7 +62,6 @@ export async function getPortfolioData(): Promise<PortfolioData> {
     
     const parsed = JSON.parse(dataStr);
     return {
-      heroImage: parsed.heroImage || defaults.heroImage,
       heroName: parsed.heroName || defaults.heroName,
       heroHeadline: parsed.heroHeadline || defaults.heroHeadline,
       heroDescription: parsed.heroDescription || defaults.heroDescription,
@@ -95,41 +92,4 @@ export async function updatePortfolioData(data: PortfolioData): Promise<{ succes
   revalidatePath("/profile");
 
   return { success: true };
-}
-
-export async function uploadPortfolioImage(formData: FormData): Promise<{ success: boolean; url: string; error?: string }> {
-  const cookieStore = await cookies();
-  const isAuthenticated = cookieStore.get("portfolio_session")?.value === "authenticated";
-  if (!isAuthenticated) {
-    return { success: false, url: "", error: "Unauthorized" };
-  }
-
-  const file = formData.get("file") as File | null;
-  if (!file) {
-    return { success: false, url: "", error: "No file provided" };
-  }
-
-  const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
-  if (!allowedTypes.includes(file.type)) {
-    return { success: false, url: "", error: "Format tidak didukung. Gunakan JPG, PNG, GIF, atau WebP." };
-  }
-
-  if (file.size > 5 * 1024 * 1024) {
-    return { success: false, url: "", error: "File terlalu besar. Maksimal 5MB." };
-  }
-
-  try {
-    const ext = file.name.split(".").pop() ?? "jpg";
-    const uniqueName = `pfp-${Date.now()}.${ext}`;
-    
-    const blob = await put(uniqueName, file, {
-      access: 'public',
-      addRandomSuffix: false
-    });
-
-    return { success: true, url: blob.url };
-  } catch (error) {
-    console.error("Vercel Blob upload failed:", error);
-    return { success: false, url: "", error: "Gagal mengunggah ke Vercel Blob." };
-  }
 }

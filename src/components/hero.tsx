@@ -1,18 +1,16 @@
 "use client";
 
 import { motion } from "framer-motion";
-import Image from "next/image";
 import { Button } from "./ui/button";
 
 interface HeroProps {
   githubUsername: string;
-  heroImage: string;
   name: string;
   headline: string;
   description: string;
 }
 
-export function Hero({ githubUsername, heroImage, name, headline, description }: HeroProps) {
+export function Hero({ githubUsername, name, headline, description }: HeroProps) {
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -58,19 +56,6 @@ export function Hero({ githubUsername, heroImage, name, headline, description }:
             {name}
           </motion.h1>
         </div>
-        <motion.div
-          variants={itemVariants}
-          className="w-20 h-20 md:w-24 md:h-24 rounded-full overflow-hidden border border-border-default flex-shrink-0 relative"
-        >
-          <Image
-            src={heroImage}
-            alt={name}
-            fill
-            sizes="(max-width: 768px) 160px, 192px"
-            className="object-cover rounded-full filter grayscale hover:grayscale-0 transition-all duration-500 ease-in-out cursor-pointer"
-            priority
-          />
-        </motion.div>
       </div>
       <motion.p
         variants={itemVariants}

@@ -36,7 +36,6 @@ export default async function Home() {
       <main className="flex-1 w-full">
         <Hero 
           githubUsername={githubUsername} 
-          heroImage={aboutData?.heroImage || "/pfp.webp"}
           name={aboutData?.heroName || "M. Abdi Nugroho"}
           headline={aboutData?.heroHeadline || "TECH ENTHUSIAST · ID"}
           description={aboutData?.heroDescription || "Seseorang dengan rasa penasaran tinggi terhadap teknologi..."}
