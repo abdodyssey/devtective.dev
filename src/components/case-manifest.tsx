@@ -1,6 +1,7 @@
 import type { GitHubRepo } from "@/types/github";
 import { CaseItem } from "./case-item";
 import { Button } from "./ui/button";
+import { ExternalLink } from "lucide-react";
 
 interface CaseManifestProps {
   repos: GitHubRepo[];
@@ -18,8 +19,8 @@ export function CaseManifest({ repos }: CaseManifestProps) {
       
       {repos.length > 5 && (
         <div className="mt-4 pt-4 border-t border-border-default text-center">
-          <Button variant="ghost" href="https://github.com/abdodyssey?tab=repositories">
-            Lihat semua proyek di GitHub ↗
+          <Button className="flex gap-2 items-center" variant="ghost" href="https://github.com/abdodyssey?tab=repositories">
+            Lihat semua proyek di GitHub <ExternalLink size={14}/>
           </Button>
         </div>
       )}

@@ -1,3 +1,4 @@
+import { ExternalLink } from "lucide-react";
 import Link from "next/link";
 
 interface FooterProps {
@@ -26,23 +27,24 @@ export function Footer({ githubUsername }: FooterProps) {
             href={`https://github.com/${githubUsername}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:text-text-primary transition-colors duration-150 uppercase"
+            className="hover:text-text-primary transition-colors duration-150 uppercase flex items-center gap-2"
           >
-            GitHub ↗
+            GitHub <ExternalLink size={10}/>
           </a>
           <a
             href={`mailto:${email}`}
-            className="hover:text-text-primary transition-colors duration-150 uppercase"
+            className="hover:text-text-primary transition-colors duration-150 uppercase flex items-center gap-2"
           >
-            Email ↗
+            Email <ExternalLink size={10}/>
           </a>
           <a
             href="https://linkedin.com/in/m-abdi-nugroho"
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:text-text-primary transition-colors duration-150 uppercase"
+            className="hover:text-text-primary transition-colors duration-150 uppercase flex items-center gap-2"
           >
-            LinkedIn ↗
+
+            LinkedIn <ExternalLink size={10}/>
           </a>
         </div>
       </div>

@@ -37,7 +37,7 @@ export function About({ bio, interests }: AboutProps) {
   }, [isHovered]);
 
   const defaultInterests = [
-    "Software Engineering",
+    "Software Engineer",
     "AI Agents",
     "Networking",
     "Operating Systems",

@@ -10,6 +10,7 @@ import { getRepo, getRepoReadme, getRepos } from "@/lib/github";
 import { formatDate, sortRepos } from "@/lib/utils";
 
 import type { GitHubRepo } from "@/types/github";
+import { ExternalLink } from "lucide-react";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -104,8 +105,8 @@ export default async function Page({ params }: PageProps) {
             View on GitHub →
           </Button>
           {repo.homepage && (
-            <Button variant="outline" href={repo.homepage}>
-              Live Demo ↗
+            <Button variant="outline" href={repo.homepage} className="flex items-center gap-1.5">
+              Live Demo <ExternalLink className="w-3.5 h-3.5" />
             </Button>
           )}
         </div>

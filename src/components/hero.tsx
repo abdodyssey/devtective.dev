@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { Button } from "./ui/button";
+import { ArrowRight, ExternalLink } from "lucide-react";
 
 interface HeroProps {
   githubUsername: string;
@@ -64,11 +65,11 @@ export function Hero({ githubUsername, name, headline, description }: HeroProps)
         {description}
       </motion.p>
       <motion.div variants={itemVariants} className="flex flex-row gap-3 mt-8">
-        <Button variant="primary" href="#projects">
-          Lihat Projects →
+        <Button variant="primary" href="#projects" className="gap-2">
+          Lihat Projects <ArrowRight size={14}/>
         </Button>
-        <Button variant="ghost" href={`https://github.com/${githubUsername}`}>
-          GitHub ↗
+        <Button variant="ghost" href={`https://github.com/${githubUsername}`} className="flex items-center gap-1.5">
+          GitHub <ExternalLink className="w-3.5 h-3.5" />
         </Button>
       </motion.div>
     </motion.section>

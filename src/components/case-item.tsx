@@ -1,8 +1,4 @@
-import { 
-  GraduationCap, Briefcase, Coffee, BookOpen, 
-  Globe, Monitor, Brain, Smartphone, FolderGit2,
-  Terminal, Activity, Building2, Stethoscope, Languages, ShoppingBag, Book
-} from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import type { GitHubRepo } from "@/types/github";
 
@@ -10,29 +6,7 @@ interface CaseItemProps {
   repo: GitHubRepo;
 }
 
-function getRepoIcon(repo: GitHubRepo) {
-  const name = repo.name.toLowerCase();
-  const desc = (repo.description || "").toLowerCase();
-  const topics = (repo.topics || []).join(" ").toLowerCase();
-  
-  const search = name + " " + desc + " " + topics;
-
-  if (search.includes("skripsi") || search.includes("academic") || search.includes("university")) return GraduationCap;
-  if (search.includes("coffee") || search.includes("cafe")) return Coffee;
-  if (search.includes("nihongo") || search.includes("language") || search.includes("teacher")) return Languages;
-  if (search.includes("voksi") || search.includes("lms") || search.includes("edukasi") || search.includes("tahfiz")) return BookOpen;
-  if (search.includes("clinic") || search.includes("health") || search.includes("medical")) return Stethoscope;
-  if (search.includes("pos") || search.includes("point of sale") || search.includes("shop")) return ShoppingBag;
-  if (search.includes("ai") || search.includes("machine learning") || search.includes("mnist")) return Brain;
-  if (search.includes("web") || search.includes("portal") || search.includes("hub")) return Globe;
-  if (search.includes("cli") || search.includes("terminal")) return Terminal;
-  
-  return FolderGit2; // Default
-}
-
 export function CaseItem({ repo }: CaseItemProps) {
-  const Icon = getRepoIcon(repo);
-
   return (
     <Link
       href={`/projects/${repo.name}`}
@@ -52,8 +26,8 @@ export function CaseItem({ repo }: CaseItemProps) {
           )}
         </div>
       </div>
-      <div className="text-text-muted group-hover:text-accent transition-colors duration-150 pr-1 flex-shrink-0">
-        <Icon className="w-4 h-4 transform group-hover:scale-110 transition-transform duration-150" />
+      <div className="text-text-placeholder group-hover:text-accent transition-colors duration-150 pr-1 flex-shrink-0">
+        <ArrowRight className="w-3.5 h-3.5 transform group-hover:translate-x-0.5 transition-transform duration-150" />
       </div>
     </Link>
   );
