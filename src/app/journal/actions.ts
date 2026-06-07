@@ -3,8 +3,9 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { put } from "@vercel/blob";
-import fs from "fs/promises";
-import path from "path";
+import Redis from "ioredis";
+
+const redis = process.env.KV_REDIS_URL ? new Redis(process.env.KV_REDIS_URL) : null;
 
 export async function verifyAndUnlockJournal(password: string): Promise<boolean> {
   const correctPassword = process.env.JOURNAL_PASSWORD || "devtective";
@@ -33,66 +34,35 @@ function generateSlug(title: string): string {
     .replace(/(^-|-$)+/g, "");
 }
 
-// Helper to push commits directly to GitHub to bypass Vercel EROFS
-async function commitToGitHub(filePath: string, content: string, message: string) {
-  const token = process.env.GITHUB_TOKEN;
-  const username = process.env.GITHUB_USERNAME || "abdodyssey";
-  const repo = "devtective.dev";
-  
-  if (!token) throw new Error("GITHUB_TOKEN is missing. Please add it to your environment variables.");
+// ── Redis Storage Interface ──────────────────────────────────────────────────
 
-  const url = `https://api.github.com/repos/${username}/${repo}/contents/${filePath}`;
-  
-  // 1. Get file SHA if it already exists
-  const getRes = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github.v3+json" }
-  });
-  let sha = undefined;
-  if (getRes.ok) {
-    const data = await getRes.json();
-    sha = data.sha;
-  }
-
-  // 2. Put file
-  const putRes = await fetch(url, {
-    method: "PUT",
-    headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github.v3+json" },
-    body: JSON.stringify({
-      message,
-      content: Buffer.from(content).toString("base64"),
-      sha
-    })
-  });
-
-  if (!putRes.ok) {
-    throw new Error(`GitHub commit failed: ${await putRes.text()}`);
-  }
+export interface JournalEntry {
+  slug: string;
+  title: string;
+  date: string;
+  isPrivate: boolean;
+  content: string;
 }
 
-async function deleteFromGitHub(filePath: string, message: string) {
-  const token = process.env.GITHUB_TOKEN;
-  const username = process.env.GITHUB_USERNAME || "abdodyssey";
-  const repo = "devtective.dev";
-  
-  if (!token) throw new Error("GITHUB_TOKEN is missing.");
-
-  const url = `https://api.github.com/repos/${username}/${repo}/contents/${filePath}`;
-  
-  const getRes = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github.v3+json" }
-  });
-  if (!getRes.ok) throw new Error("File not found on GitHub");
-  
-  const data = await getRes.json();
-  const sha = data.sha;
-
-  const delRes = await fetch(url, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github.v3+json" },
-    body: JSON.stringify({ message, sha })
-  });
-
-  if (!delRes.ok) throw new Error(`GitHub delete failed: ${await delRes.text()}`);
+export async function getAllJournalEntries(): Promise<{ slug: string; entry: { title: string; date: string; isPrivate: boolean } }[]> {
+  if (!redis) return [];
+  try {
+    const data = await redis.hgetall("journal_entries");
+    return Object.values(data).map(json => {
+      const parsed = JSON.parse(json) as JournalEntry;
+      return {
+        slug: parsed.slug,
+        entry: {
+          title: parsed.title,
+          date: parsed.date,
+          isPrivate: parsed.isPrivate,
+        }
+      };
+    }).sort((a, b) => new Date(b.entry.date).getTime() - new Date(a.entry.date).getTime());
+  } catch (e) {
+    console.error("Failed to load journals from redis:", e);
+    return [];
+  }
 }
 
 export async function createOrUpdateJournalEntry(
@@ -104,32 +74,20 @@ export async function createOrUpdateJournalEntry(
 ): Promise<{ success: boolean; slug: string }> {
   const cookieStore = await cookies();
   const isAuthenticated = cookieStore.get("journal_session")?.value === "authenticated";
-  if (!isAuthenticated) {
-    throw new Error("Unauthorized");
-  }
+  if (!isAuthenticated) throw new Error("Unauthorized");
+  if (!redis) throw new Error("Redis not configured");
 
   const slug = existingSlug || generateSlug(title);
-  const fileContent = `---
-title: ${title}
-date: ${date}
-isPrivate: ${isPrivate}
----
-${content.trim()}
-`;
+  
+  const entryData: JournalEntry = {
+    slug,
+    title,
+    date,
+    isPrivate,
+    content: content.trim()
+  };
 
-  // On Vercel, we must commit to GitHub so Keystatic can read it upon rebuild
-  if (process.env.VERCEL) {
-    await commitToGitHub(
-      `src/content/journal/${slug}.mdoc`,
-      fileContent,
-      `docs: update journal entry ${slug}`
-    );
-  } else {
-    // Local fallback
-    const filePath = path.join(process.cwd(), "src/content/journal", `${slug}.mdoc`);
-    await fs.mkdir(path.dirname(filePath), { recursive: true });
-    await fs.writeFile(filePath, fileContent, "utf-8");
-  }
+  await redis.hset("journal_entries", slug, JSON.stringify(entryData));
 
   revalidatePath("/journal");
   revalidatePath(`/journal/${slug}`);
@@ -140,17 +98,13 @@ ${content.trim()}
 export async function deleteJournalEntry(slug: string): Promise<boolean> {
   const cookieStore = await cookies();
   const isAuthenticated = cookieStore.get("journal_session")?.value === "authenticated";
-  if (!isAuthenticated) {
-    throw new Error("Unauthorized");
-  }
+  if (!isAuthenticated) throw new Error("Unauthorized");
+  if (!redis) return false;
 
   try {
-    if (process.env.VERCEL) {
-      await deleteFromGitHub(`src/content/journal/${slug}.mdoc`, `docs: delete journal entry ${slug}`);
-    } else {
-      const filePath = path.join(process.cwd(), "src/content/journal", `${slug}.mdoc`);
-      await fs.unlink(filePath);
-    }
+    await redis.hdel("journal_entries", slug);
+    // Also delete associated comments
+    await redis.del(`comments:${slug}`);
     revalidatePath("/journal");
     return true;
   } catch (error) {
@@ -160,34 +114,28 @@ export async function deleteJournalEntry(slug: string): Promise<boolean> {
 }
 
 export async function getRawJournalContent(slug: string): Promise<string> {
-  const cookieStore = await cookies();
-  const isAuthenticated = cookieStore.get("journal_session")?.value === "authenticated";
-  if (!isAuthenticated) {
-    throw new Error("Unauthorized");
-  }
-
+  // Now returns the JournalEntry stringified or just content
+  // Since our UI expects raw content string:
+  if (!redis) return "";
   try {
-    if (process.env.VERCEL) {
-      const token = process.env.GITHUB_TOKEN;
-      const username = process.env.GITHUB_USERNAME || "abdodyssey";
-      const url = `https://api.github.com/repos/${username}/devtective.dev/contents/src/content/journal/${slug}.mdoc`;
-      const res = await fetch(url, {
-        headers: token ? { Authorization: `Bearer ${token}`, Accept: "application/vnd.github.v3.raw" } : { Accept: "application/vnd.github.v3.raw" },
-        cache: 'no-store'
-      });
-      if (!res.ok) throw new Error("Not found on GitHub");
-      const fileContent = await res.text();
-      const parts = fileContent.split("---");
-      return parts.slice(2).join("---").trim();
-    } else {
-      const filePath = path.join(process.cwd(), "src/content/journal", `${slug}.mdoc`);
-      const fileContent = await fs.readFile(filePath, "utf-8");
-      const parts = fileContent.split("---");
-      return parts.slice(2).join("---").trim();
-    }
+    const data = await redis.hget("journal_entries", slug);
+    if (!data) return "";
+    const parsed = JSON.parse(data) as JournalEntry;
+    return parsed.content;
   } catch (error) {
     console.error("Error reading raw journal:", error);
     return "";
+  }
+}
+
+export async function getFullJournalEntry(slug: string): Promise<JournalEntry | null> {
+  if (!redis) return null;
+  try {
+    const data = await redis.hget("journal_entries", slug);
+    if (!data) return null;
+    return JSON.parse(data) as JournalEntry;
+  } catch (error) {
+    return null;
   }
 }
 
@@ -216,7 +164,6 @@ export async function uploadJournalImage(formData: FormData): Promise<{ success:
     const ext = file.name.split(".").pop() ?? "jpg";
     const uniqueName = `journal-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
     
-    // Always use Vercel Blob for images for consistency
     const blob = await put(uniqueName, file, {
       access: 'public',
       addRandomSuffix: false

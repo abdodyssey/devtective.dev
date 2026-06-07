@@ -1,18 +1,15 @@
 import { cookies } from "next/headers";
-import { createReader } from "@keystatic/core/reader";
-import keystaticConfig from "../../../../keystatic.config";
 import { Nav } from "@/components/nav";
 import { Footer } from "@/components/footer";
 import { LockButton } from "../lock-button";
-import { DocumentRenderer } from "@keystatic/core/renderer";
 import Link from "next/link";
-import { Calendar, ArrowLeft, Lock, Users, Eye, Clock } from "lucide-react";
+import { Calendar, ArrowLeft, Lock, Users, Clock } from "lucide-react";
 import { notFound } from "next/navigation";
 import { getComments, getVisitorStats } from "../comment-actions";
 import { CommentSection } from "../comment-section";
 import { LoginForm } from "../login-form";
-
-const reader = createReader(process.cwd(), keystaticConfig);
+import { getFullJournalEntry } from "../actions";
+import { marked } from "marked";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -24,9 +21,7 @@ export default async function JournalPostPage({ params }: PageProps) {
   const isAuthenticated = cookieStore.get("journal_session")?.value === "authenticated";
   const githubUsername = process.env.GITHUB_USERNAME || "abdodyssey";
 
-  let post = null;
-  try { post = await reader.collections.journal.read(slug); }
-  catch (error) { console.error("Failed to load journal post:", error); }
+  const post = await getFullJournalEntry(slug);
 
   if (!post) notFound();
 
@@ -47,7 +42,8 @@ export default async function JournalPostPage({ params }: PageProps) {
     ? new Date(post.date).toLocaleDateString("id-ID", { year: "numeric", month: "long", day: "numeric" })
     : "Tanggal tidak diketahui";
 
-  const content = await post.content();
+  const content = post.content;
+  const parsedContent = await marked.parse(content);
 
   // Load comments + visitor stats in parallel
   const [initialComments, visitorStats] = await Promise.all([
@@ -59,8 +55,6 @@ export default async function JournalPostPage({ params }: PageProps) {
     <div className="min-h-screen flex flex-col bg-bg-primary text-text-secondary select-none">
       <Nav />
       <main className="flex-1 w-full pt-28 pb-16 max-w-3xl mx-auto px-6 md:px-8">
-
-
 
         {/* Header nav */}
         <div className="flex items-center justify-between border-b border-border-default pb-4 mb-8">
@@ -96,17 +90,18 @@ export default async function JournalPostPage({ params }: PageProps) {
               </div>
               <div className="flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5" /> 
-                {Math.max(1, Math.ceil(JSON.stringify(content).replace(/[{}[\]":\\]/g, '').split(/\s+/).length / 200))} min read
+                {Math.max(1, Math.ceil(content.split(/\s+/).length / 200))} min read
               </div>
             </div>
           </div>
 
-          <div className="prose prose-sm md:prose-base dark:prose-invert max-w-none font-sans text-text-secondary leading-relaxed space-y-4 pt-4 border-t border-border-default">
-            <DocumentRenderer document={content} />
-          </div>
+          <div 
+            className="prose prose-sm md:prose-base dark:prose-invert max-w-none font-sans text-text-secondary leading-relaxed space-y-4 pt-4 border-t border-border-default"
+            dangerouslySetInnerHTML={{ __html: parsedContent }}
+          />
         </article>
 
-        {/* Visitor Analytics Banner (owner only) - Moved to bottom */}
+        {/* Visitor Analytics Banner (owner only) */}
         {isAuthenticated && visitorStats && visitorStats.totalUnique > 0 && (
           <div className="mt-12 mb-6 p-4 bg-bg-surface border border-border-default rounded-lg">
             <div className="flex items-center gap-2 mb-3 font-mono text-xs text-text-muted uppercase tracking-wider font-bold">
@@ -136,7 +131,7 @@ export default async function JournalPostPage({ params }: PageProps) {
           </div>
         )}
 
-        {/* Comments — only on public posts or when logged in */}
+        {/* Comments */}
         {!isPostPrivate || isAuthenticated ? (
           <CommentSection
             slug={slug}

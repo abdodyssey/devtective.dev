@@ -1,13 +1,10 @@
 import { cookies } from "next/headers";
-import { createReader } from "@keystatic/core/reader";
-import keystaticConfig from "../../../keystatic.config";
 import { Nav } from "@/components/nav";
 import { Footer } from "@/components/footer";
 import { calculateJournalStreak, calculateAchievements } from "@/lib/journal-utils";
 import { JournalWorkspace } from "./journal-workspace";
 import { getVisitorStats } from "./comment-actions";
-
-const reader = createReader(process.cwd(), keystaticConfig);
+import { getAllJournalEntries } from "./actions";
 
 export default async function JournalPage() {
   const cookieStore = await cookies();
@@ -16,12 +13,7 @@ export default async function JournalPage() {
 
   let posts: any[] = [];
   try {
-    posts = await reader.collections.journal.all();
-    posts.sort((a, b) => {
-      const dateA = new Date(a.entry.date || 0);
-      const dateB = new Date(b.entry.date || 0);
-      return dateB.getTime() - dateA.getTime();
-    });
+    posts = await getAllJournalEntries();
   } catch (error) {
     console.error("Failed to load journal entries:", error);
   }
